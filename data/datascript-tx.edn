@@ -1,0 +1,25 @@
+;; data/datascript-tx.edn — DataScript tx-data derived from src/association/facts.cljc
+;; `association.facts/catalog` (ADR-2607141700 Wave 0). Same shape as sibling files.
+
+[#:association-rule{:id "cni.predecessor-cib-1933"
+                     :title "Confederação Industrial do Brasil (CIB), CNI's direct predecessor, founded 25 January 1933 in Rio de Janeiro (FGV CPDOC official historical dictionary)"
+                     :association "cni"
+                     :isic "9411"
+                     :country "BRA"
+                     :kind :governance-program
+                     :url "https://www18.fgv.br/cpdoc/acervo/dicionarios/verbete-tematico/confederacao-nacional-da-industria-cni"
+                     :url-provenance :fgv-cpdoc-corroborated
+                     :established-date "1933-01-25"
+                     :retrieved-at "2026-07-17"
+                     :topic [:governance]}
+ #:association-rule{:id "cni.founding-1938"
+                     :title "Confederação Nacional da Indústria (CNI) created 12 August 1938, recognized by the Ministry of Labor, Industry and Commerce on 17 September 1938, succeeding the Confederação Industrial do Brasil (FGV CPDOC official historical dictionary)"
+                     :association "cni"
+                     :isic "9411"
+                     :country "BRA"
+                     :kind :governance-program
+                     :url "https://www18.fgv.br/cpdoc/acervo/dicionarios/verbete-tematico/confederacao-nacional-da-industria-cni"
+                     :url-provenance :fgv-cpdoc-corroborated
+                     :established-date "1938-08-12"
+                     :retrieved-at "2026-07-17"
+                     :topic [:governance]}]
