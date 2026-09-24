@@ -1,10 +1,11 @@
 (ns association.facts-test
-  (:require [clojure.test :refer [deftest is]]
-            [association.facts :as facts]))
+  (:require [clojure.test :refer [deftest is testing]]
+            [association.facts :as facts]
+            [clojure.string :as str]))
 
 (deftest cni-has-spec-basis
   (let [sb (facts/spec-basis "cni")]
-    (is (= 2 (count sb)))
+    (is (= 30 (count sb)))
     (is (every? #(= "9411" (:association-rule/isic %)) sb))
     (is (every? #(= "BRA" (:association-rule/country %)) sb))))
 
@@ -19,6 +20,69 @@
     (is (= ["ibec"] (:missing-associations c)))))
 
 (deftest by-topic-filters
-  (is (= 2 (count (facts/by-topic "cni" :governance))))
-  (is (empty? (facts/by-topic "cni" :labor)))
+  (is (= 20 (count (facts/by-topic "cni" :governance))))
+  (is (= 13 (count (facts/by-topic "cni" :statute))))
+  (is (= 8 (count (facts/by-topic "cni" :history))))
+  (is (= 5 (count (facts/by-topic "cni" :labor))))
+  (is (= 5 (count (facts/by-topic "cni" :membership))))
+  (is (= 3 (count (facts/by-topic "cni" :constitution))))
+  (is (= 3 (count (facts/by-topic "cni" :policy))))
+  (is (= 2 (count (facts/by-topic "cni" :international))))
+  (is (= 1 (count (facts/by-topic "cni" :compliance))))
+  (is (empty? (facts/by-topic "cni" :trade)))
   (is (empty? (facts/by-topic "ibec" :governance))))
+
+(deftest every-entry-is-individually-addressable
+  ;; A catalog that reused an id would let one entry shadow another under
+  ;; :db.unique/identity, and the count assertions above would not notice.
+  (let [sb (facts/spec-basis "cni")]
+    (is (= (count sb) (count (into #{} (map :association-rule/id sb)))))
+    (is (every? #(re-matches #"cni\.[a-z0-9-]+" (:association-rule/id %)) sb))))
+
+(deftest every-entry-carries-a-source-and-says-whose-it-is
+  ;; The label has to match the host: an :official-cni-portaldaindustria entry
+  ;; that points anywhere but CNI's site is a first-party claim nobody made,
+  ;; and an FGV entry must be served by FGV.
+  (doseq [e (facts/spec-basis "cni")]
+    (testing (:association-rule/id e)
+      (is (re-matches #"https://\S+" (:association-rule/url e)))
+      (is (= ({:official-cni-portaldaindustria "cni.portaldaindustria.com.br"
+               :fgv-cpdoc-corroborated "www18.fgv.br"}
+              (:association-rule/url-provenance e))
+             (second (re-find #"^https://([^/]+)/" (:association-rule/url e)))))
+      (is (seq (:association-rule/source-article e)))
+      (is (seq (:association-rule/source-quote e)))
+      (is (seq (:association-rule/topic e)))
+      (is (re-matches #"\d{4}-\d{2}-\d{2}" (:association-rule/retrieved-at e))))))
+
+(deftest both-speakers-date-the-founding
+  ;; CNI's statute and the FGV dictionary both give 12 August 1938. They are
+  ;; kept as two entries so that either can rot without taking the other.
+  (let [founding (filter #(= "1938-08-12" (:association-rule/established-date %))
+                         (facts/spec-basis "cni"))]
+    (is (= #{:official-cni-portaldaindustria :fgv-cpdoc-corroborated}
+           (set (map :association-rule/url-provenance founding))))))
+
+(deftest a-dated-entry-quotes-its-date
+  ;; The year of every dated entry is in its own quote; an undated entry says
+  ;; why instead of silently carrying nothing.
+  (doseq [e (facts/spec-basis "cni")]
+    (testing (:association-rule/id e)
+      (if-let [d (or (:association-rule/established-date e)
+                     (:association-rule/last-revised-date e))]
+        (is (str/includes? (:association-rule/source-quote e) (subs d 0 4)))
+        (is (keyword? (:association-rule/date-unknown-because e)))))))
+
+(deftest no-office-holder-is-named
+  ;; The compliance page carries a message signed by the current President,
+  ;; the forums page names each thematic council's chair, the site footer
+  ;; names the headquarters building after a past President, and the FGV
+  ;; entry names past presidents, ministers and industrialists. The quotes
+  ;; stop before each name; this pins that they still do.
+  (doseq [e (facts/spec-basis "cni")
+          nm ["Alban" "Simonsen" "Lunardi" "Lyra" "Street" "Galliez" "Ludolf"
+              "Vargas" "Kubitschek" "Magalhães" "Almeida" "Linhares"]]
+    (is (not (str/includes? (str (:association-rule/title e) " "
+                                 (:association-rule/source-quote e))
+                            nm))
+        (str (:association-rule/id e) " names " nm))))
